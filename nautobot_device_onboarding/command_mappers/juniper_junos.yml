@@ -37,3 +37,40 @@ network_importer:
       - command: "show version | display json"
         use_textfsm: false
         jpath: '"software-information"[]."host-name"[].data'  # yamllint disable-line rule:quoted-strings
+  serial:
+    commands:
+      - command: "show chassis hardware | display json"
+        use_textfsm: false
+        jpath: '"chassis-inventory"[]."chassis"[]."serial-number"[].data'  # yamllint disable-line rule:quoted-strings
+  type:
+    commands:
+      - command: "show interfaces brief | display json"
+        use_textfsm: false
+        jpath: '"interface-information"[]."physical-interface"[].{interface: name[].data, type: name[].data[:2]}'  # yamllint disable-line rule:quoted-strings
+        post_processor: "{% set othertype = 'other' %}{% for entry in obj %}{% if entry['type'] %}{% if entry['type'] in ['ae', 'ge','xe'] %}{{ interface, type }}{% else %}{{ interface, othertype }}{% endif %}{% endif %}{% endfor %}"
+        #post_processor: "{% set iftype = [] %}{% for entry in obj %}{% if entry['name'] %}{% if entry['name'].startswith('ae') %}{% set _=iftype.append('Link Aggregation Group (LAG)')}{{ iftype | first }}{% endif %}{% endif %}{% endfor %}"
+  ip_addresses:
+    commands:
+      - command: "show interfaces terse | display json"
+        use_textfsm: false
+        jpath: '"interface-information"[]."physical-interface"[]."logical-interface"[].{logical: name[].data, cidr: "address-family"[]."interface-address"[]."ifa-local"[].data}'  # yamllint disable-line rule:quoted-strings
+        # stuck on logical interface and:
+        # post_processor: "{% for entry in obj %}{% if (entry['logical'] and entry['cidr']) %}{{ entry['logical'] %}{% set _=addrfam.append('v4')%}{% elseif entry['family'==inet6 %}i{%set _=addrfam.append('v6')%}{{ name, addrfam, address }}{% endif %}{% endif %}{% endfor %}"
+  prefix_length:
+    commands:
+      - command: "show interfaces terse | display json"
+        use_textfsm: false
+        jpath: '"interface-information"[]."physical-interface"[]."logical-interface"[].{interface: name[].data, ip_address: "address-family"[]."interface-address"[]."ifa-local"[].data}'  # yamllint disable-line rule:quoted-strings
+      #   post_processor: "{% for ipaddr in obj %}{% if '/' in ipaddr and ipaddr.split('/')[0] == original_host %}{{ ipaddr.split('/')[1] }}{% endif %}{% endfor %}"
+      #   This ^ one is better, I think
+      #post_processor: "{% set addrfam = [] %}{% for entry in obj %}{% if entry['family'] %}{% if entry['family']=='inet' %}{% set _=addrfam.append('v4')%}{% elseif entry['family'==inet6 %}i{%set _=addrfam.append('v6')%}{{ name, addrfam, address }}{% endif %}{% endif %}{% endfor %}"
+  mtu:
+    commands:
+      - command: "show interfaces brief | display json"
+        use_textfsm: false
+        jpath: '"interface-information"[]."physical-interface"[].{interface: name[].data, mtu: mtu[].data}'  # yamllint disable-line rule:quoted-strings
+  mac_address:
+    commands:
+      - command: "show interfaces | display json"
+        use_textfsm: false
+        jpath: '"interface-information"[]."physical-interface"[].{interface: name[].data, mac_address: "hardware-physical-address"[].data}'  # yamllint disable-line rule:quoted-strings
